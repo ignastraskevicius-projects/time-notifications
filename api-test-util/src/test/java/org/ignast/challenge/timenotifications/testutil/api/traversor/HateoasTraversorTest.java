@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.HttpMethod.GET;
+import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.http.HttpMethod.PUT;
 import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR;
@@ -104,6 +105,25 @@ public final class HateoasTraversorTest {
             .andRespond(withSuccess(link("any", "http://any"), APP_V1));
 
         final val response = traversors.startAt(ROOT_URI).hop(f -> f.put("company", "someRequest")).perform();
+
+        assertThat(response.getBody()).contains("http://any");
+    }
+
+    @Test
+    public void traversePostHop() {
+        server
+            .expect(requestTo(ROOT_URI))
+            .andExpect(method(GET))
+            .andRespond(withSuccess(link("company", "http://root/company"), APP_V1));
+        server
+            .expect(requestTo("http://root/company"))
+            .andExpect(method(POST))
+            .andRespond(withSuccess(link("any", "http://any"), APP_V1));
+
+        final val response = traversors
+            .startAt(ROOT_URI)
+            .hop(f -> f.post("company", "someRequest"))
+            .perform();
 
         assertThat(response.getBody()).contains("http://any");
     }

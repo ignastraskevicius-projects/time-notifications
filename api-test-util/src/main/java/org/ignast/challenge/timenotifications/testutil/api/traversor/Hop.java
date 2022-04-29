@@ -33,7 +33,11 @@ public interface Hop {
         private final HrefExtractor hrefExtractor;
 
         public TraversableHop put(final String rel, final String body) {
-            return new PutHop(appMediaType, restTemplate, hrefExtractor, rel, body);
+            return new HopWithBody(appMediaType, restTemplate, hrefExtractor, rel, body, HttpMethod.PUT);
+        }
+
+        public TraversableHop post(final String rel, final String body) {
+            return new HopWithBody(appMediaType, restTemplate, hrefExtractor, rel, body, HttpMethod.POST);
         }
 
         public TraversableHop get(@NonNull final String rel) {
@@ -41,7 +45,7 @@ public interface Hop {
         }
 
         @AllArgsConstructor
-        private static final class PutHop extends TraversableHop {
+        private static final class HopWithBody extends TraversableHop {
 
             private final MediaType appMediaType;
 
@@ -55,10 +59,12 @@ public interface Hop {
             @NonNull
             private final String body;
 
+            private final HttpMethod method;
+
             @Override
             public ResponseEntity<String> traverse(@NonNull final ResponseEntity<String> response) {
                 final val href = hrefExtractor.extractHref(response, rel);
-                return restTemplate.exchange(href, HttpMethod.PUT, contentTypeV1(body), String.class);
+                return restTemplate.exchange(href, method, contentTypeV1(body), String.class);
             }
 
             private HttpEntity<String> contentTypeV1(final String content) {
