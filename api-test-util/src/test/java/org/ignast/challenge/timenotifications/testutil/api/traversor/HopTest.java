@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.HttpMethod.GET;
+import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.http.HttpMethod.PUT;
 import static org.springframework.http.HttpStatus.OK;
 import static org.springframework.http.ResponseEntity.status;
@@ -112,35 +113,6 @@ final class GetHopTest {
 }
 
 @ExtendWith(MockitoExtension.class)
-final class GetCuriesHopTest {
-
-    private static final MediaType APP_V1 = MediaType.parseMediaType(
-        "application/app.specific.media.type-v1.hal+json"
-    );
-
-    private static final String RESPONSE_FROM_SERVER = "someResponseFromServer";
-
-    private final RestTemplate restTemplate = RestTemplateStubs.stubExchanging(RESPONSE_FROM_SERVER);
-
-    private final HrefExtractor hrefExtractor = mock(HrefExtractor.class);
-
-    private final Hop.Factory hopFactory = new Hop.Factory(APP_V1, restTemplate, hrefExtractor);
-
-    @Mock
-    private ResponseEntity<String> response;
-
-    @Captor
-    private ArgumentCaptor<HttpEntity<String>> entityCaptor;
-
-    @Test
-    public void getHopShouldNotAcceptNullRels() {
-        assertThatExceptionOfType(NullPointerException.class).isThrownBy(() -> hopFactory.get(null));
-    }
-
-    private static class TestException extends RuntimeException {}
-}
-
-@ExtendWith(MockitoExtension.class)
 final class PutHopTest {
 
     private static final MediaType APP_V1 = MediaType.parseMediaType(
@@ -199,6 +171,70 @@ final class PutHopTest {
 
         assertThatExceptionOfType(TestException.class)
             .isThrownBy(() -> hopFactory.put("any", "anyRequest").traverse(response));
+    }
+
+    private static class TestException extends RuntimeException {}
+}
+
+@ExtendWith(MockitoExtension.class)
+final class PostHopTest {
+
+    private static final MediaType APP_V1 = MediaType.parseMediaType(
+        "application/app.specific.media.type-v1.hal+json"
+    );
+
+    private static final String RESPONSE_FROM_SERVER = "someResponseFromServer";
+
+    private final RestTemplate restTemplate = RestTemplateStubs.stubExchanging(RESPONSE_FROM_SERVER);
+
+    private final HrefExtractor hrefExtractor = mock(HrefExtractor.class);
+
+    private final Hop.Factory hopFactory = new Hop.Factory(APP_V1, restTemplate, hrefExtractor);
+
+    @Mock
+    private ResponseEntity<String> response;
+
+    @Captor
+    private ArgumentCaptor<HttpEntity<String>> entityCaptor;
+
+    @Test
+    public void hopsTraversalShouldNotAcceptNullEntities() {
+        assertThatExceptionOfType(NullPointerException.class)
+            .isThrownBy(() -> hopFactory.post("any", "request").traverse(null));
+    }
+
+    @Test
+    public void postHopShouldNotAcceptNullRels() {
+        assertThatExceptionOfType(NullPointerException.class)
+            .isThrownBy(() -> hopFactory.post(null, "request"));
+    }
+
+    @Test
+    public void postHopShouldNotAcceptNullRequests() {
+        assertThatExceptionOfType(NullPointerException.class)
+            .isThrownBy(() -> hopFactory.post("company", null));
+    }
+
+    @Test
+    public void shouldTraversePutHop() {
+        final val linkToClient = status(OK).contentType(APP_V1).body(link("client", "uri"));
+        when(hrefExtractor.extractHref(linkToClient, "client")).thenReturn("clientUri");
+
+        final val companyResponse = hopFactory.post("client", "hopRequest").traverse(linkToClient);
+
+        verify(restTemplate).exchange(eq("clientUri"), eq(POST), entityCaptor.capture(), eq(String.class));
+        assertThat(entityCaptor.getValue().getHeaders().get("Content-Type"))
+            .isEqualTo(List.of(APP_V1.toString()));
+        assertThat(entityCaptor.getValue().getBody()).isEqualTo("hopRequest");
+        assertThat(companyResponse.getBody()).isEqualTo(RESPONSE_FROM_SERVER);
+    }
+
+    @Test
+    public void postHopTraversalShouldFailWhenHrefCannotBeExtracted() {
+        when(hrefExtractor.extractHref(response, "any")).thenThrow(TestException.class);
+
+        assertThatExceptionOfType(TestException.class)
+            .isThrownBy(() -> hopFactory.post("any", "anyRequest").traverse(response));
     }
 
     private static class TestException extends RuntimeException {}

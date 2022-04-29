@@ -32,16 +32,6 @@ public class HrefExtractor {
         return new Extractor(response, rel).extractValidating(this::traverseToResourceHref);
     }
 
-    private String expandRelParam(final String templatedHref, final String rel) {
-        final val relParam = "{rel}";
-        if (templatedHref.contains(relParam)) {
-            return templatedHref.replace(relParam, rel);
-        } else {
-            final val error = "Hop to 'curies' failed: href is not templated with 'rel' parameter";
-            throw new IllegalArgumentException(error);
-        }
-    }
-
     private String traverseToResourceHref(final String json, final String rel) throws JSONException {
         MatcherAssert.assertThat(json, HateoasJsonMatchers.hasRel(rel).withHref());
         return new JSONObject(json).getJSONObject(LINKS).getJSONObject(rel).getString(HREF);
