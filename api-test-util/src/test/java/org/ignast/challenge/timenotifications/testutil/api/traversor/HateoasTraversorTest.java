@@ -6,6 +6,7 @@ import static org.ignast.challenge.timenotifications.testutil.api.traversor.Hate
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.springframework.http.HttpMethod.DELETE;
 import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.http.HttpMethod.PUT;
@@ -89,6 +90,22 @@ public final class HateoasTraversorTest {
             .andRespond(withSuccess(link("company", "http://any"), APP_V1));
 
         final val response = traversors.startAt(ROOT_URI).hop(f -> f.get("company")).perform();
+
+        assertThat(response.getBody()).contains("http://any");
+    }
+
+    @Test
+    public void traverseDeleteHop() {
+        server
+            .expect(requestTo(ROOT_URI))
+            .andExpect(method(GET))
+            .andRespond(withSuccess(link("company", "http://root/company"), APP_V1));
+        server
+            .expect(requestTo("http://root/company"))
+            .andExpect(method(DELETE))
+            .andRespond(withSuccess(link("company", "http://any"), APP_V1));
+
+        final val response = traversors.startAt(ROOT_URI).hop(f -> f.delete("company")).perform();
 
         assertThat(response.getBody()).contains("http://any");
     }

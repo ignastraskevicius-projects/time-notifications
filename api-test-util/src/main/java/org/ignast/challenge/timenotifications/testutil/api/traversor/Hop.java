@@ -1,5 +1,6 @@
 package org.ignast.challenge.timenotifications.testutil.api.traversor;
 
+import static org.springframework.http.HttpMethod.DELETE;
 import static org.springframework.http.HttpMethod.GET;
 
 import java.util.function.Function;
@@ -41,7 +42,16 @@ public interface Hop {
         }
 
         public TraversableHop get(@NonNull final String rel) {
-            return new GetHop(appMediaType, restTemplate, r -> hrefExtractor.extractHref(r, rel));
+            return new BodylessHop(appMediaType, restTemplate, r -> hrefExtractor.extractHref(r, rel), GET);
+        }
+
+        public TraversableHop delete(@NonNull final String rel) {
+            return new BodylessHop(
+                appMediaType,
+                restTemplate,
+                r -> hrefExtractor.extractHref(r, rel),
+                DELETE
+            );
         }
 
         @AllArgsConstructor
@@ -75,7 +85,7 @@ public interface Hop {
         }
 
         @AllArgsConstructor
-        private static final class GetHop extends TraversableHop {
+        private static final class BodylessHop extends TraversableHop {
 
             private final MediaType appMediaType;
 
@@ -83,10 +93,12 @@ public interface Hop {
 
             private final Function<ResponseEntity<String>, String> extractorHref;
 
+            private final HttpMethod method;
+
             @Override
             ResponseEntity<String> traverse(@NonNull final ResponseEntity<String> previousResponse) {
                 final val href = extractorHref.apply(previousResponse);
-                return restTemplate.exchange(href, GET, acceptV1(), String.class);
+                return restTemplate.exchange(href, method, acceptV1(), String.class);
             }
 
             private HttpEntity<String> acceptV1() {

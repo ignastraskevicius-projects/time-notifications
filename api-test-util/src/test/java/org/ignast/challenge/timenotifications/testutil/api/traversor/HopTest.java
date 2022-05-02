@@ -3,10 +3,12 @@ package org.ignast.challenge.timenotifications.testutil.api.traversor;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.ignast.challenge.timenotifications.testutil.api.traversor.HateoasLink.link;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.http.HttpMethod.DELETE;
 import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.http.HttpMethod.POST;
 import static org.springframework.http.HttpMethod.PUT;
@@ -107,6 +109,59 @@ final class GetHopTest {
 
         assertThatExceptionOfType(TestException.class)
             .isThrownBy(() -> hopFactory.get("any").traverse(response));
+    }
+
+    private static class TestException extends RuntimeException {}
+}
+
+@ExtendWith(MockitoExtension.class)
+final class DeleteHopTest {
+
+    private static final MediaType APP_V1 = MediaType.parseMediaType(
+        "application/app.specific.media.type-v1.hal+json"
+    );
+
+    private static final String RESPONSE_FROM_SERVER = "someResponseFromServer";
+
+    private final RestTemplate restTemplate = RestTemplateStubs.stubExchanging(RESPONSE_FROM_SERVER);
+
+    private final HrefExtractor hrefExtractor = mock(HrefExtractor.class);
+
+    private final Hop.Factory hopFactory = new Hop.Factory(APP_V1, restTemplate, hrefExtractor);
+
+    @Mock
+    private ResponseEntity<String> response;
+
+    @Captor
+    private ArgumentCaptor<HttpEntity<String>> entityCaptor;
+
+    @Test
+    public void hopsTraversalShouldNotAcceptNullEntities() {
+        assertThatExceptionOfType(NullPointerException.class)
+            .isThrownBy(() -> hopFactory.delete("any").traverse(null));
+    }
+
+    @Test
+    public void deleteHopShouldNotAcceptNullRels() {
+        assertThatExceptionOfType(NullPointerException.class).isThrownBy(() -> hopFactory.delete(null));
+    }
+
+    @Test
+    public void shouldTraverseDeleteHop() {
+        final val linkToCompany = status(OK).body(link("company", "companyUri"));
+        when(hrefExtractor.extractHref(linkToCompany, "company")).thenReturn("companyUri");
+
+        final val companyResponse = hopFactory.delete("company").traverse(linkToCompany);
+
+        verify(restTemplate).exchange(eq("companyUri"), eq(DELETE), any(), eq(String.class));
+    }
+
+    @Test
+    public void deleteHopTraversalShouldFailWhenHrefCannotBeExtracted() {
+        when(hrefExtractor.extractHref(response, "any")).thenThrow(TestException.class);
+
+        assertThatExceptionOfType(TestException.class)
+            .isThrownBy(() -> hopFactory.delete("any").traverse(response));
     }
 
     private static class TestException extends RuntimeException {}
